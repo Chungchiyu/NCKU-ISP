@@ -3,15 +3,28 @@
 
 #include "Arduino.h"
 
+
+/*--------------- BOARD_VERSIOIN_SETTING ---------------*/
+// #define V1_ATMEGA328P
+#define V2_ESP8266
+// #define V2_ESP32
+
 /*--------------- System function enable ---------------*/
-//#define USE_DUAL_SYSTEM_WATCHDOG
-#define USE_PERIPHERAL_SD_CARD
+#define USE_SERIAL_DEBUGGER
+
 #define USE_PERIPHERAL_BMP280
 //#define USE_PERIPHERAL_BMP280_LIB
 #define USE_PERIPHERAL_MPU6050
 //#define USE_PERIPHERAL_BUZZER
-#define USE_SERIAL_DEBUGGER
-#define USE_LORA_COMMUNICATION
+
+#if defined(V1_ATMEGA328P) || defined(V2_ESP32)
+    #define USE_PERIPHERAL_SD_CARD
+    #define USE_LORA_COMMUNICATION
+    #define USE_DUAL_SYSTEM_WATCHDOG
+#elif defined(V2_ESP8266)
+    #define USE_WEB_COMMUNICATION
+    #define USE_FILE_SYSTEM
+#endif
 
 /*--------------------- PIN_SETTING --------------------*/
 #ifdef USE_DUAL_SYSTEM_WATCHDOG
@@ -60,6 +73,10 @@
 #define PIN_TRIGGER 6
 #define PIN_MOTOR 5
 
+/*------------------ WIFI Communication ------------------*/
+#define AP_AS_SERVER   //Access point as server (Sky)
+#define STA_AS_SERVER  //Station as server (Ground)
+
 /*------------ Configuration for parachute --------------*/
 #define SERVO_INITIAL_ANGLE 0
 #define SERVO_RELEASE_ANGLE 90
@@ -96,10 +113,18 @@
 /*---------------------- Data logger --------------------*/
 #ifdef USE_PERIPHERAL_SD_CARD
 #define LOGGER_SD_CS 10
+#define LOGGER_FILENAME_BUFFER 20
+#elif defined(USE_FILE_SYSTEM)
+//
+// Choose using SPIFF or LittleFS as filesystem engine.
+// You can only choose one of these
+// If you don't comment one of them. LittleFS would be chosed
+//
+#define LITTLE_FS   //default
+// #define SPIFF
+#endif
 #define LOGGER_FILENAME "logger"
 #define LOGGER_FILE_EXT ".txt"
-#define LOGGER_FILENAME_BUFFER 20
-#endif
 #define LOGGER_LOG_INTERVAL 100
 
 /*-------------------- Serial debugger ------------------*/

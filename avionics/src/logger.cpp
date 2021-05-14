@@ -6,7 +6,7 @@ Logger::Logger()
            PIN_LORA_RESET,     // Port-Pin Output: Reset
            PIN_LORA_BUSY,      // Port-Pin Input:  Busy
            PIN_LORA_INTERRUPT  // Port-Pin Input:  Interrupt DIO1
-      )
+           )
 #endif
 {
 #ifdef USE_LORA_COMMUNICATION
@@ -35,6 +35,19 @@ bool Logger::init()
     file_ext = filename + extension;
     for (int i = 0; SD.exists(file_ext); i++)
         file_ext = filename + String(i) + extension;
+
+#elif defined(USE_FILE_SYSTEM)
+    if (!filesystem->begin()) {
+        Serial.println("LittleFS mount failed");
+        return false;
+    }
+
+    // Check whether the filename is unique
+    String fileName = LOGGER_FILENAME;
+    String extension = LOGGER_FILE_EXT;
+    file_ext = fileName + extension;
+    for (int i = 0; filesystem->exists(file_ext); i++)
+        file_ext = fileName + String(i) + extension;
 #endif
     return true;
 }
@@ -82,7 +95,19 @@ void Logger::log(String msg, LOG_LEVEL level)
         sd.println(prefix + msg);
         sd.close();
     }
+#elif defined(USE_FILE_SYSTEM)
+    // Open for appending (writing at end of file).
+    // The file is created if it does not exist.
+    // The stream is positioned at the end of the file.
+    File f = filesystem->open(file_ext, "a");
+    if (!f) {
+        Serial.println("Failed to open file for appending");
+        return;
+    }
+    f.write(prefix + msg + String('\n'));
+    f.close();
 #endif
+
 
 #ifdef USE_SERIAL_DEBUGGER
     Serial.println(prefix + msg);
@@ -93,6 +118,23 @@ void Logger::log_code(int code, LOG_LEVEL level)
 {
     log(String(code), LEVEL_ERROR);
 }
+
+// void Logger::handleFileList(String path = "/")
+// {
+//     // Assuming there are no subdirectories
+//     Dir dir = LittleFS.openDir(path);
+//     String output = "[";
+//     while (dir.next()) {
+//         File entry = dir.openFile("r");
+//         // Separate by comma if there are multiple files
+//         if (output != "[")
+//             output += ",";
+//         output += String(entry.name()).substring(0);
+//         entry.close();
+//     }
+//     output += "]";
+//     Serial.println(output);
+// }
 
 #ifdef USE_LORA_COMMUNICATION
 void Logger::lora_send(LOG_LORA_MODE mode, int16_t *data)

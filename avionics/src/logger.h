@@ -11,10 +11,15 @@
 #ifndef _LOGGER_H
 #define _LOGGER_H
 
-#include <SD.h>
-#include <SPI.h>
 #include "Arduino.h"
 #include "configs.h"
+#ifdef USE_PERIPHERAL_SD_CARD
+#include <SD.h>
+#include <SPI.h>
+#elif defined(USE_FILE_SYSTEM)
+#include <FS.h>
+#include <LittleFS.h>
+#endif
 
 #ifdef USE_LORA_COMMUNICATION
 #include <SX126x.h>
@@ -44,6 +49,13 @@ public:
 #ifdef USE_LORA_COMMUNICATION
     SX126x lora;
 #endif
+#ifdef USE_FILE_SYSTEM
+    #ifdef LITTLE_FS
+        FS *filesystem = &LittleFS;
+    #else
+        FS *filesystem = &SPIFFS;
+    #endif
+#endif
 
     Logger();
 
@@ -59,6 +71,8 @@ public:
 
     /* Log existing error code or info code */
     void log_code(int code, LOG_LEVEL level);
+
+    //void handleFileList(String path);
 
 #ifdef USE_LORA_COMMUNICATION
     void lora_send(LOG_LORA_MODE mode, int16_t *data);

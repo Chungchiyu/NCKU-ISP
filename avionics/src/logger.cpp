@@ -37,6 +37,7 @@ bool Logger::init()
         file_ext = filename + String(i) + extension;
 
 #elif defined(USE_FILE_SYSTEM)
+    Serial.println("check");
     if (!filesystem->begin()) {
         Serial.println("LittleFS mount failed");
         return false;
@@ -104,7 +105,7 @@ void Logger::log(String msg, LOG_LEVEL level)
         Serial.println("Failed to open file for appending");
         return;
     }
-    f.write(prefix + msg + String('\n'));
+    f.print(prefix + msg + String('\n'));
     f.close();
 #endif
 
@@ -119,22 +120,50 @@ void Logger::log_code(int code, LOG_LEVEL level)
     log(String(code), LEVEL_ERROR);
 }
 
-// void Logger::handleFileList(String path = "/")
-// {
-//     // Assuming there are no subdirectories
-//     Dir dir = LittleFS.openDir(path);
-//     String output = "[";
-//     while (dir.next()) {
-//         File entry = dir.openFile("r");
-//         // Separate by comma if there are multiple files
-//         if (output != "[")
-//             output += ",";
-//         output += String(entry.name()).substring(0);
-//         entry.close();
-//     }
-//     output += "]";
-//     Serial.println(output);
-// }
+
+#ifdef USE_FILE_SYSTEM
+
+String Logger::listFile(String path)
+{
+    // Assuming there are no subdirectories
+    Dir dir = filesystem->openDir(path);
+    String output = "[";
+    while (dir.next()) {
+        File entry = dir.openFile("r");
+        // Separate by comma if there are multiple files
+        if (output != "[")
+            output += ",";
+        output += String(entry.name()).substring(0);
+        entry.close();
+    }
+    output += "]";
+    Serial.println(output);
+    return output;
+}
+
+bool Logger::deleteFile(const char *fileName)
+{
+    Serial.printf("Deleting file: %s\n", fileName);
+    if (LittleFS.remove(String("/") + fileName)) {
+        Serial.println("File deleted");
+        return true;
+    } else {
+        Serial.println("Delete failed");
+        return false;
+    }
+}
+bool Logger::deleteFile(String fileName)
+{
+    return deleteFile(fileName.c_str());
+}
+
+bool Logger::formatFS()
+{
+    return filesystem->format();
+}
+
+#endif
+
 
 #ifdef USE_LORA_COMMUNICATION
 void Logger::lora_send(LOG_LORA_MODE mode, int16_t *data)

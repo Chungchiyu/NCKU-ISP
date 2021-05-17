@@ -1,7 +1,7 @@
 /*
  * This library deals with the logging
  * Including
- * 1. Log into SD card
+ * 1. Log into SD card or filesystem
  * 2. Log with communication module
  *
  * Require:
@@ -40,6 +40,7 @@ class Logger
 {
 private:
     String file_ext;
+
 #ifdef USE_LORA_COMMUNICATION
     LoraPacket packet;
     uint16_t lora_packet_id;
@@ -50,11 +51,11 @@ public:
     SX126x lora;
 #endif
 #ifdef USE_FILE_SYSTEM
-    #ifdef LITTLE_FS
-        FS *filesystem = &LittleFS;
-    #else
-        FS *filesystem = &SPIFFS;
-    #endif
+#ifdef LITTLE_FS
+    FS *filesystem = &LittleFS;
+#else
+    FS *filesystem = &SPIFFS;
+#endif
 #endif
 
     Logger();
@@ -72,7 +73,15 @@ public:
     /* Log existing error code or info code */
     void log_code(int code, LOG_LEVEL level);
 
-    //void handleFileList(String path);
+    /* List file on board */
+    String listFile(String path = "/");
+
+    /* Delete file */
+    bool deleteFile(const char * filename);
+    bool deleteFile(String fileName);
+
+    /* Format all filesystem */
+    bool formatFS();
 
 #ifdef USE_LORA_COMMUNICATION
     void lora_send(LOG_LORA_MODE mode, int16_t *data);

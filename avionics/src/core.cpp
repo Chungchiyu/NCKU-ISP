@@ -5,7 +5,12 @@
 SYSTEM_STATE System::state = SYSTEM_UP;
 #endif
 
-System::System() : logger(), imu()
+System::System()
+    : logger()  //, imu()
+#ifdef USE_WIFI_COMMUNICATION
+      ,
+      comms()  // Initialize wifi communication object
+#endif
 {
 // Pin set up
 #ifdef USE_DUAL_SYSTEM_WATCHDOG
@@ -32,17 +37,20 @@ SYSTEM_STATE System::init()
 {
     // Setup logger
     while (!logger.init()) {
-        buzzer(BUZ_LEVEL0);
+        // buzzer(BUZ_LEVEL0);
     }
+#ifdef USE_WIFI_COMMUNICATION
+    comms.init();
+#endif
     logger.log_code(INFO_LOGGER_INIT, LEVEL_INFO);
 
     // Setup IMU
-    while (imu.init() != ERROR_OK) {
-        logger.log_code(ERROR_IMU_INIT_FAILED, LEVEL_ERROR);
-        buzzer(BUZ_LEVEL0);
-    }
+    // while (imu.init() != ERROR_OK) {
+    //     logger.log_code(ERROR_IMU_INIT_FAILED, LEVEL_ERROR);
+    //     buzzer(BUZ_LEVEL0);
+    // }
     // logger.log_info(INFO_IMU_INIT);
-    logger.log_code(INFO_IMU_INIT, LEVEL_INFO);
+    // logger.log_code(INFO_IMU_INIT, LEVEL_INFO);
 
     // Servo position inialization
     parachute(SERVO_INITIAL_ANGLE);
@@ -52,12 +60,41 @@ SYSTEM_STATE System::init()
     logger.lora_init();
     logger.log_code(INFO_LORA_INIT, LEVEL_INFO);
 
-    buzzer(BUZ_LEVEL3);
+    // buzzer(BUZ_LEVEL3);
 
     // Setup core update
     logger.log_code(INFO_ALL_SYSTEM_INIT, LEVEL_INFO);
 
     return SYSTEM_READY;
+}
+
+#ifdef USE_WIFI_COMMUNICATION
+
+bool System::wifi_send(uint8_t num, String payload)
+{
+    comms.webSocket.sendTXT(num, payload);
+}
+bool System::wifi_send(uint8_t num, const char *payload)
+{
+    comms.webSocket.sendTXT(num, payload);
+}
+
+bool System::wifi_broadcast(String payload)
+{
+    comms.webSocket.broadcastTXT(payload);
+}
+bool System::wifi_broadcast(const char *payload)
+{
+    comms.webSocket.broadcastTXT(payload);
+}
+
+#endif
+
+void System::loop()
+{
+#ifdef USE_WIFI_COMMUNICATION
+    comms.loop();  // Loop for the wifi opertation
+#endif
 }
 
 #ifdef USE_DUAL_SYSTEM_WATCHDOG

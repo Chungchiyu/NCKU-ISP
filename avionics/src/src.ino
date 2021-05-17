@@ -4,34 +4,41 @@ System *sys;
 
 void setup()
 {
-    Serial.begin(38400);
+    Serial.begin(115200);
     sys = new System();
 
     while (sys->init() != SYSTEM_READY) {
-        sys->buzzer(BUZ_LEVEL2);
+         sys->buzzer(BUZ_LEVEL2);
     }
     // ISR_enable();
 }
 
 void loop()
 {
-    if (sys->imu.pose == ROCKET_RISING) {
-        sys->buzzer(BUZ_LEVEL0);
-        sys->logger.log("Rising");
-    } else if (sys->imu.pose == ROCKET_FALLING) {
-        sys->parachute(SERVO_RELEASE_ANGLE);
-        sys->buzzer(BUZ_LEVEL1);
-        sys->logger.log("Falling");
+    sys->loop();
+    if (Serial.available() > 0) {
+        char c[] = {(char) Serial.read()};
+        if (*c == 'q')
+            sys->wifi_broadcast("OK");
+        Serial.println(c[0]);
     }
-    // sys.parachute(SERVO_RELEASE_ANGLE);
+// if (sys->imu.pose == ROCKET_RISING) {
+//     sys->buzzer(BUZ_LEVEL0);
+//     sys->logger.log("Rising");
+// } else if (sys->imu.pose == ROCKET_FALLING) {
+//     sys->parachute(SERVO_RELEASE_ANGLE);
+//     sys->buzzer(BUZ_LEVEL1);
+//     sys->logger.log("Falling");
+// }
+// sys.parachute(SERVO_RELEASE_ANGLE);
 
-    // Continuous logging
-    static auto last_log_time = millis();
-    if (millis() - last_log_time > LOGGER_LOG_INTERVAL) {
-        sys->imu.bmp_update();
-        sys->logger.log(String(sys->imu.altitude), LEVEL_INFO);
-        last_log_time = millis();
-    }
+// Continuous logging
+// static auto last_log_time = millis();
+// if (millis() - last_log_time > LOGGER_LOG_INTERVAL) {
+//     sys->imu.bmp_update();
+//     sys->logger.log(String(sys->imu.altitude), LEVEL_INFO);
+//     last_log_time = millis();
+// }
 
 #ifdef USE_PERIPHERAL_MPU6050
     if (sys->imu.imu_isr_update()) {
@@ -43,6 +50,7 @@ void loop()
     }
 #endif
 }
+
 /*
 void ISR_enable()
 {

@@ -12,9 +12,9 @@
 /*--------------- System function enable ---------------*/
 #define USE_SERIAL_DEBUGGER
 
-#define USE_PERIPHERAL_BMP280
+//#define USE_PERIPHERAL_BMP280
 //#define USE_PERIPHERAL_BMP280_LIB
-#define USE_PERIPHERAL_MPU6050
+//#define USE_PERIPHERAL_MPU6050
 //#define USE_PERIPHERAL_BUZZER
 
 #if defined(V1_ATMEGA328P) || defined(V2_ESP32)
@@ -22,7 +22,7 @@
     #define USE_LORA_COMMUNICATION
     #define USE_DUAL_SYSTEM_WATCHDOG
 #elif defined(V2_ESP8266)
-    #define USE_WEB_COMMUNICATION
+    #define USE_WIFI_COMMUNICATION 
     #define USE_FILE_SYSTEM
 #endif
 
@@ -30,7 +30,7 @@
 #ifdef USE_DUAL_SYSTEM_WATCHDOG
 #define PIN_PARTNER_RESET 8
 #endif
-#define PIN_SERVO
+//#define PIN_SERVO
 
 // Communication
 // A0~A5 map to 14~19
@@ -70,12 +70,25 @@
 #ifdef USE_PERIPHERAL_BUZZER
 #define PIN_BUZZER 2
 #endif
+#ifdef V1_ATMEGA328P
 #define PIN_TRIGGER 6
 #define PIN_MOTOR 5
+#elif defined(V2_ESP8266)
+#define PIN_TRIGGER 12
+#define PIN_TRIGGER_2 14
+#define PIN_MOTOR 13
+#elif defined(V2_ESP32)
+#define PIN_TRIGGER 6
+#define PIN_MOTOR 5
+#endif
 
 /*------------------ WIFI Communication ------------------*/
-#define AP_AS_SERVER   //Access point as server (Sky)
-#define STA_AS_SERVER  //Station as server (Ground)
+#define AP_AS_SERVER   // Access point as server (Sky)
+#define STA_AS_SERVER  // Station as server (Ground)
+#define WIFI_SSID "ESP8266_avionics"     // default ssid
+#define WIFI_PASSWARD "nckuispavionics"  // default passward
+#define WIFI_HOST_NAME "NCKU.ISP"        // default host name
+
 
 /*------------ Configuration for parachute --------------*/
 #define SERVO_INITIAL_ANGLE 0
@@ -87,7 +100,7 @@
 // IMU interrupt
 // Only available on specific pins,
 // 328: 2, 3,
-// 32u4: 0, 1, 2, 3, 7
+// 32u4: 0, 1, 22, 3, 7
 #define PIN_IMU_INT 2
 // an MPU9250 object with the MPU-9250 sensor on I2C bus 0 with address 0x68
 #define IMU_MPU_ADDR 0x68
@@ -129,7 +142,7 @@
 
 /*-------------------- Serial debugger ------------------*/
 #ifdef USE_SERIAL_DEBUGGER
-#define SERIAL_DEBUGGER_BAUDRATE 38400
+#define SERIAL_DEBUGGER_BAUDRATE 115200
 #endif
 
 /*------------------ Watchdog protection ----------------*/

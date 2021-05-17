@@ -14,11 +14,12 @@
 #include "configs.h"
 #include "logger.h"
 #include "sensors.h"
+#include "WIFI_comms.h"
 
 #include <Servo.h>
 
 enum SYSTEM_STATE { SYSTEM_UP = 0, SYSTEM_READY, SYSTEM_ERROR };
-enum SPI_MASTER { SPI_NONE, SPI_SD, SPI_COMMUNICATION };
+enum SPI_MASTER { SPI_NONE, SPI_SD, SPI_COMMUNICATION};
 enum BUZZER_LEVEL { BUZ_LEVEL0, BUZ_LEVEL1, BUZ_LEVEL2, BUZ_LEVEL3 };
 
 #define TIMER_PRESCALER_1 0x01
@@ -43,8 +44,11 @@ private:
 
 public:
     SYSTEM_STATE state;
-    IMU imu;
+    // IMU imu;
     Logger logger;
+#ifdef USE_WIFI_COMMUNICATION
+    wifiServer comms;
+#endif
 
     System();
 
@@ -53,6 +57,16 @@ public:
      * 2. logger
      */
     SYSTEM_STATE init();
+
+#ifdef USE_WIFI_COMMUNICATION
+    bool wifi_send(uint8_t num, String payload);
+    bool wifi_send(uint8_t num, const char * payload);
+
+    bool wifi_broadcast(String payload);
+    bool wifi_broadcast(const char * payload);
+
+    void loop();
+#endif
 
 /* Check if the partner mcu report normal */
 #ifdef USE_DUAL_SYSTEM_WATCHDOG

@@ -15,6 +15,9 @@ double IMU::altitude = 0; // Altitude
 double IMU::sea_level_pressure = 0;
 */
 IMU::IMU()
+#ifdef USE_GY91_MPU9250
+    : mpu(Wire, 0x68)
+#endif
 {
     pose = ROCKET_UNKNOWN;
 }
@@ -86,6 +89,23 @@ ERROR_CODE IMU::init()
         // Serial.println(F(")"));
         return ERROR_DMP_INIT_FAILED;
     }
+#elif defined(USE_GY91_MPU9250)
+    int status = mpu.begin();
+    if (status < 0) {
+        Serial.println("IMU initialization unsuccessful");
+        Serial.println("Check IMU wiring or try cycling power");
+        Serial.print("Status: ");
+        Serial.println(status);
+        return ERROR_MPU_INIT_FAILED;
+    }
+    // setting the accelerometer full scale range to +/-8G
+    mpu.setAccelRange(MPU9250::ACCEL_RANGE_8G);
+    // setting the gyroscope full scale range to +/-500 deg/s
+    mpu.setGyroRange(MPU9250::GYRO_RANGE_500DPS);
+    // setting DLPF bandwidth to 20 Hz
+    mpu.setDlpfBandwidth(MPU9250::DLPF_BANDWIDTH_20HZ);
+    // setting SRD to 19 for a 50 Hz update rate
+    mpu.setSrd(19);
 #endif
 
 #ifdef USE_PERIPHERAL_BMP280
@@ -121,7 +141,6 @@ ERROR_CODE IMU::init()
     return ERROR_OK;
 }
 
-#ifdef USE_PERIPHERAL_MPU6050
 /*
 volatile bool mpuInterrupt =
     false;  // indicates whether MPU interrupt pin has gone high
@@ -130,8 +149,10 @@ void dmpDataReady()
     mpuInterrupt = true;
 }*/
 
+#if defined(USE_PERIPHERAL_MPU6050) || defined(USE_GY91_MPU9250)
 bool IMU::imu_isr_update()
 {
+#ifdef USE_PERIPHERAL_MPU6050
     if (dmpReady &&
         mpu.dmpGetCurrentFIFOPacket(fifoBuffer)) {  // Get the Latest packet
         mpu.dmpGetQuaternion(&q, fifoBuffer);
@@ -148,6 +169,11 @@ bool IMU::imu_isr_update()
         return true;
     }
     return false;
+#elif defined(USE_GY91_MPU9250)
+    if (mpu.readSensor() != 1)
+        return false;
+    return true;
+#endif
 }
 #endif
 

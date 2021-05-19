@@ -44,7 +44,7 @@ private:
 
 public:
     SYSTEM_STATE state;
-    // IMU imu;
+    IMU imu;
     Logger logger;
 #ifdef USE_WIFI_COMMUNICATION
     wifiServer comms;

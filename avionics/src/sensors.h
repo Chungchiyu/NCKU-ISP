@@ -28,6 +28,9 @@
 #endif
 #endif
 
+#ifdef USE_GY91_MPU9250
+#include <MPU9250.h>
+#endif
 
 void dmpDataReady();
 
@@ -76,6 +79,11 @@ public:
     VectorInt16
         aaWorld;  // [x, y, z]            world-frame accel sensor measurements
 #endif
+
+#ifdef USE_GY91_MPU9250
+    MPU9250 mpu;
+#endif
+
     float altitude;  // Altitude
 
     float seaLevelHpa;
@@ -100,7 +108,7 @@ public:
  * 2. Gyroscope for 1 kHz
  * 3. Magnetic for 100 Hz
  */
-#ifdef USE_PERIPHERAL_MPU6050
+#if defined(USE_PERIPHERAL_MPU6050) || defined(USE_GY91_MPU9250)
     bool imu_isr_update();
 #endif
 

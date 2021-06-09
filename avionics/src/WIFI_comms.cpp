@@ -2,7 +2,7 @@
 #ifdef USE_WIFI_COMMUNICATION
 
 
-wifiServer::wifiServer() : server(80), webSocket(81)
+wifiServer::wifiServer() : server(80), webSocket(81), message("")
 {
 }
 
@@ -26,6 +26,7 @@ bool wifiServer::init(const char *ssid /*=WIFI_SSID*/,
         return false;
     }
 #endif
+    Serial.println(String("MAC Address: ") + WiFi.macAddress());
 
     server.onNotFound(
         [=]() {  //[=] lambda expression calling all variables by value
@@ -48,6 +49,22 @@ bool wifiServer::init(const char *ssid /*=WIFI_SSID*/,
     // Start wesocket and server service
     webSocket.begin();
     server.begin();
+
+#ifdef ESP_NOW
+    // Init ESP-NOW
+    if (esp_now_init() != 0) {
+        Serial.println("Error initializing ESP-NOW");
+        return;
+    }
+    // Once ESPNow is successfully Init, we will register for Send CB to
+    // get the status of Trasnmitted packet
+    esp_now_set_self_role(ESP_NOW_ROLE_COMBO);
+    esp_now_register_send_cb(onDataSend);
+    esp_now_register_recv_cb(onDataRecv);
+
+    // Register peer
+    esp_now_add_peer(sendTo, ESP_NOW_ROLE_SLAVE, 1, NULL, 0);
+#endif
 
     return true;  // If all things operate successfully
 }
@@ -130,10 +147,11 @@ void wifiServer::webSocketEvent(uint8_t num,
     case WStype_TEXT:
         Serial.printf("[%u] : %s\n", num, payload);
         static bool wait = false;
+        message = (const char *) payload;
 
-        if (strcmp((const char *) payload, "list file") == 0)
+        if (message == "list file")
             webSocket.sendTXT(num, listFile().c_str());
-        else if (strcmp((const char *) payload, "format") == 0) {
+        else if (message == "format") {
             bool format = formatFS();
             if (format) {
                 Serial.println("Format success");
@@ -142,7 +160,7 @@ void wifiServer::webSocketEvent(uint8_t num,
                 Serial.println("Format failed");
                 webSocket.sendTXT(num, "Format failed");
             }
-        } else if (strcmp((const char *) payload, "delete") == 0 || wait) {
+        } else if (message == "delete" || wait) {
             if (!wait) {
                 Serial.println("Delete which file?");
                 webSocket.sendTXT(num, "Delete which file?");
@@ -150,8 +168,8 @@ void wifiServer::webSocketEvent(uint8_t num,
                 webSocket.sendTXT(num, allFile);
                 wait = true;
             } else {
-                if (filesystem->exists((const char *) payload)) {
-                    if (deleteFile((const char *) payload)) {
+                if (filesystem->exists(message)) {
+                    if (deleteFile(message)) {
                         Serial.println("Delete success");
                         webSocket.sendTXT(num, "Delete success");
                     } else {
@@ -164,6 +182,8 @@ void wifiServer::webSocketEvent(uint8_t num,
                 }
                 wait = false;
             }
+        } else if(message.indexOf("read") != -1) {
+            webSocket.sendTXT(num, readFile(message.substring(5)).c_str());
         }
         // send message to client
         // webSocket.sendTXT(num, "message here");
@@ -188,5 +208,27 @@ void wifiServer::loop()
     webSocket.loop();       // Loop for websocket
     MDNS.update();          // For muiltipule clients to connect
 }
+
+#ifdef ESP_NOW
+void onDataSend(uint8_t *mac_addr, uint8_t status)
+{
+    Serial.print("Last Packet Send Status: ");
+    if (status == 0) {
+        Serial.println("Delivery success");
+    } else {
+        Serial.println("Delivery fail");
+    }
+}
+
+void onDataRecv(uint8_t *mac_addr, uint8_t *payload, uint8_t length)
+{
+    memcpy(&data, payload, sizeof(data));
+    Serial.print("Bytes received: ");
+    Serial.println(length);
+    Serial.print("Char: ");
+    Serial.println(data.message);
+    Serial.println();
+}
+#endif
 
 #endif

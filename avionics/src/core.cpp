@@ -6,11 +6,15 @@ SYSTEM_STATE System::state = SYSTEM_UP;
 #endif
 
 System::System()
-    : logger(), imu()
+    : logger(),
+      imu()
 #ifdef USE_WIFI_COMMUNICATION
       ,
       comms()  // Initialize wifi communication object
 #endif
+      ,
+      closeAngle(SERVO_INITIAL_ANGLE),
+      openAngle(SERVO_RELEASE_ANGLE)
 {
 // Pin set up
 #ifdef USE_DUAL_SYSTEM_WATCHDOG
@@ -44,10 +48,10 @@ SYSTEM_STATE System::init()
 #endif
     logger.log_code(INFO_LOGGER_INIT, LEVEL_INFO);
 
-    //Setup IMU
+    // Setup IMU
     while (imu.init() != ERROR_OK) {
-        //logger.log_code(ERROR_IMU_INIT_FAILED, LEVEL_ERROR);
-        //buzzer(BUZ_LEVEL0);
+        // logger.log_code(ERROR_IMU_INIT_FAILED, LEVEL_ERROR);
+        // buzzer(BUZ_LEVEL0);
     }
     // // logger.log_info(INFO_IMU_INIT);
     // // logger.log_code(INFO_IMU_INIT, LEVEL_INFO);
@@ -68,39 +72,52 @@ SYSTEM_STATE System::init()
     return SYSTEM_READY;
 }
 
-#ifdef USE_WIFI_COMMUNICATION
 
 bool System::wifi_send(uint8_t num, String payload)
 {
+#ifdef USE_WIFI_COMMUNICATION
     comms.webSocket.sendTXT(num, payload);
+#endif
 }
 bool System::wifi_send(uint8_t num, const char *payload)
 {
+#ifdef USE_WIFI_COMMUNICATION
     comms.webSocket.sendTXT(num, payload);
+#endif
 }
 
 bool System::wifi_broadcast(String payload)
 {
+#ifdef USE_WIFI_COMMUNICATION
     comms.webSocket.broadcastTXT(payload);
+#endif
 }
 bool System::wifi_broadcast(const char *payload)
 {
+#ifdef USE_WIFI_COMMUNICATION
     comms.webSocket.broadcastTXT(payload);
+#endif
 }
 
-#endif
 
 void System::loop()
 {
 #ifdef USE_WIFI_COMMUNICATION
+
     comms.loop();  // Loop for the wifi opertation
+
+    command(&comms.message);
+
+#endif
+#ifdef USE_PERIPHERAL_BMP280
+    //imu.bmp_update();
 #endif
 }
 
 #ifdef USE_DUAL_SYSTEM_WATCHDOG
 WATCHDOG_STATE System::check_partner_state()
 {
-    if (millis() - last_update_time > WATCH_SPI_TIMEOUT)
+    if (millis() - command_update_time > WATCH_SPI_TIMEOUT)
         return WATCHDOG_TIMEOUT;
     return WATCHDOG_OK;
 }
@@ -147,16 +164,60 @@ void System::trig(bool trig)
     digitalWrite(PIN_TRIGGER, trig);
 }
 
-void System::parachute(int angle)
+void System::fairingOpen(int angle)
 {
-    trig(true);
+    // trig(true);
     servo.attach(PIN_MOTOR);
-    servo.write(angle);
+    servo.write(angle); 
+    Serial.println("open fairing done.");
+    wifi_broadcast("open fairing done.");
 }
 
-void System::parachute_release()
+// Barely used (Just in case)
+void System::fairingClose(int angle)
+{
+    // trig(false);
+    servo.attach(PIN_MOTOR);
+    servo.write(angle);
+    Serial.println("close fairing done.");
+    wifi_broadcast("close fairing done.");
+}
+
+void System::fairingServoOff()
 {
     // release the servo to save power
     servo.detach();
     trig(false);
+}
+
+void System::setFairingLimit(int close, int open)
+{
+    closeAngle = close;
+    openAngle = open;
+}
+
+void System::command(String *command)
+{
+    if ((*command).equals("open fairing")) {
+        fairingOpen(openAngle);
+        (*command) = "";
+    } else if ((*command).equals("close fairing")) {
+        fairingClose(closeAngle);
+        (*command) = "";
+    } else if ((*command).indexOf("set fairing") != -1) {
+        int open = (*command).substring((*command).indexOf(":")).toInt();
+        (*command).remove((*command).indexOf(":"));
+        int close = (*command).toInt();
+        if (open > 180 || open < 0 || close > 180 || close < 0) {
+            Serial.println(
+                "set fairing failed : angle out of limit, must 0~180");
+            wifi_broadcast(
+                "set fairing failed : angle out of limit, must 0~180");
+        } else {
+            setFairingLimit(close, open);
+            Serial.println("set fairing done.");
+            wifi_broadcast("set fairing done.");
+        }
+        (*command) = "";
+    }
 }

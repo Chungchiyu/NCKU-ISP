@@ -12,7 +12,7 @@
 /*--------------- System function enable ---------------*/
 #define USE_SERIAL_DEBUGGER
 
-//#define USE_PERIPHERAL_BMP280
+#define USE_PERIPHERAL_BMP280
 //#define USE_PERIPHERAL_BMP280_LIB
 //#define USE_PERIPHERAL_MPU6050
 #define USE_GY91_MPU9250
@@ -25,13 +25,13 @@
 #elif defined(V2_ESP8266)
     #define USE_WIFI_COMMUNICATION 
     #define USE_FILE_SYSTEM
+    // #define ESP_NOW
 #endif
 
 /*--------------------- PIN_SETTING --------------------*/
 #ifdef USE_DUAL_SYSTEM_WATCHDOG
 #define PIN_PARTNER_RESET 8
 #endif
-//#define PIN_SERVO
 
 // Communication
 // A0~A5 map to 14~19
@@ -92,8 +92,8 @@
 
 
 /*------------ Configuration for parachute --------------*/
-#define SERVO_INITIAL_ANGLE 0
-#define SERVO_RELEASE_ANGLE 90
+#define SERVO_INITIAL_ANGLE 180
+#define SERVO_RELEASE_ANGLE 0
 
 /*------------------ Constants for imu ------------------*/
 #ifdef USE_PERIPHERAL_MPU6050

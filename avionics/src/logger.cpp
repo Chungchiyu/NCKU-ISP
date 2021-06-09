@@ -37,7 +37,6 @@ bool Logger::init()
         file_ext = filename + String(i) + extension;
 
 #elif defined(USE_FILE_SYSTEM)
-    Serial.println("check");
     if (!filesystem->begin()) {
         Serial.println("LittleFS mount failed");
         return false;
@@ -74,19 +73,19 @@ void Logger::log(String msg, LOG_LEVEL level)
     String prefix = "";
     switch (level) {
     case LEVEL_DEBUG:
-        prefix = "D:";
+        prefix = "D->";
         break;
     case LEVEL_INFO:
-        prefix = "I:";
+        prefix = "I->";
         break;
     case LEVEL_WARNING:
-        prefix = "W:";
+        prefix = "W->";
         break;
     case LEVEL_ERROR:
-        prefix = "E:";
+        prefix = "E->";
         break;
     }
-    prefix += String(millis()) + ',';
+    prefix += String(millis()) + ':';
 
 #ifdef USE_PERIPHERAL_SD_CARD
     // Create file if it is not exist
@@ -105,7 +104,7 @@ void Logger::log(String msg, LOG_LEVEL level)
         Serial.println("Failed to open file for appending");
         return;
     }
-    f.print(prefix + msg + String('\n'));
+    f.print(prefix + msg + "\n");
     f.close();
 #endif
 
@@ -117,7 +116,7 @@ void Logger::log(String msg, LOG_LEVEL level)
 
 void Logger::log_code(int code, LOG_LEVEL level)
 {
-    log(String(code), LEVEL_ERROR);
+    log(String(code), level);
 }
 
 
@@ -160,6 +159,23 @@ bool Logger::deleteFile(String fileName)
 bool Logger::formatFS()
 {
     return filesystem->format();
+}
+
+String Logger::readFile(const char *fileName)
+{
+    File f = filesystem->open(String("/") + fileName, "r");
+    if(!f)
+        return String("Failed to open file for reading");
+    String index;
+    while(f.available())
+        index += (char)f.read();
+    f.close();
+    return index;
+}
+
+String Logger::readFile(String fileName)
+{
+    return readFile(fileName.c_str());
 }
 
 #endif

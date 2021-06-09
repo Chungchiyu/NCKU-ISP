@@ -41,6 +41,7 @@ private:
     volatile SPI_MASTER sd_master;
 
     Servo servo;
+    int closeAngle, openAngle;    // For setting servo angle
 
 public:
     SYSTEM_STATE state;
@@ -58,7 +59,7 @@ public:
      */
     SYSTEM_STATE init();
 
-#ifdef USE_WIFI_COMMUNICATION
+/* For WiFi communication */
     bool wifi_send(uint8_t num, String payload);
     bool wifi_send(uint8_t num, const char * payload);
 
@@ -66,7 +67,7 @@ public:
     bool wifi_broadcast(const char * payload);
 
     void loop();
-#endif
+
 
 /* Check if the partner mcu report normal */
 #ifdef USE_DUAL_SYSTEM_WATCHDOG
@@ -75,8 +76,12 @@ public:
 
     void buzzer(BUZZER_LEVEL beep);
     void trig(bool trig);
-    void parachute(int angle);
-    void parachute_release();
+    void fairingOpen(int angle = SERVO_RELEASE_ANGLE);
+    void fairingClose(int angle = SERVO_INITIAL_ANGLE);
+    void fairingServoOff();
+    void setFairingLimit(int close, int open);
+
+    void command(String *command);
 };
 
 #endif

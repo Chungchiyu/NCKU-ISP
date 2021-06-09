@@ -83,6 +83,9 @@ public:
     /* Format all filesystem */
     bool formatFS();
 
+    String readFile(const char *fileName);
+    String readFile(String fileName);
+
 #ifdef USE_LORA_COMMUNICATION
     void lora_send(LOG_LORA_MODE mode, int16_t *data);
 #endif

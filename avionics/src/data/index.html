@@ -1,0 +1,43 @@
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>NCKU ISP Avionics</title>
+    <!--Materialize icon, css, js-->
+    <link type="text/css" href="/style.css" rel="stylesheet">
+</head>
+
+<body onload="javascript:init()">
+    <table>
+        <tr>
+            <td>
+                <button type="button" class="button open" onclick="openFairing()">Open fairing</button>
+                <button type="button" class="button" onclick="closeFairing()">Close fairing</button>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <input type="text" id="txBar">
+                <button type="button" class="button" onclick="sendText()">send text</button>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <button type="button" onclick="clearText()">clear</button>
+                <button type="button" onclick="calibrate()">recal</button>
+                <button type="button" class="button" onclick="record()">record</button>
+                <button type="button" class="button" onclick="stopRecord()">stop</button>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <textarea id="rxConsole" rows="25" cols="35"></textarea>
+            </td>
+        </tr>
+    </table>
+    <script src="/sketch.js"></script>
+</body>
+
+</html>

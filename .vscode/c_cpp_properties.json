@@ -10,6 +10,7 @@
             "includePath": [
                 "d:/_College_work/club/ISP/code/NCKU-ISP/include",
                 "d:/_College_work/club/ISP/code/NCKU-ISP/avionics/src",
+                "C:/Users/dfer2/.platformio/packages/framework-arduinoespressif8266/libraries/SoftwareSerial/src",
                 "C:/Users/dfer2/.platformio/packages/framework-arduinoespressif8266/libraries/SD/src",
                 "C:/Users/dfer2/.platformio/packages/framework-arduinoespressif8266/libraries/SDFS/src",
                 "C:/Users/dfer2/.platformio/packages/framework-arduinoespressif8266/libraries/ESP8266SdFat/src",
@@ -46,7 +47,6 @@
                 "C:/Users/dfer2/.platformio/packages/framework-arduinoespressif8266/libraries/ESP8266httpUpdate/src",
                 "C:/Users/dfer2/.platformio/packages/framework-arduinoespressif8266/libraries/GDBStub/src",
                 "C:/Users/dfer2/.platformio/packages/framework-arduinoespressif8266/libraries/SPISlave/src",
-                "C:/Users/dfer2/.platformio/packages/framework-arduinoespressif8266/libraries/SoftwareSerial/src",
                 "C:/Users/dfer2/.platformio/packages/framework-arduinoespressif8266/libraries/TFT_Touch_Shield_V2",
                 "C:/Users/dfer2/.platformio/packages/framework-arduinoespressif8266/libraries/Ticker/src",
                 "C:/Users/dfer2/.platformio/packages/framework-arduinoespressif8266/libraries/esp8266/src",
@@ -57,6 +57,7 @@
                 "path": [
                     "d:/_College_work/club/ISP/code/NCKU-ISP/include",
                     "d:/_College_work/club/ISP/code/NCKU-ISP/avionics/src",
+                    "C:/Users/dfer2/.platformio/packages/framework-arduinoespressif8266/libraries/SoftwareSerial/src",
                     "C:/Users/dfer2/.platformio/packages/framework-arduinoespressif8266/libraries/SD/src",
                     "C:/Users/dfer2/.platformio/packages/framework-arduinoespressif8266/libraries/SDFS/src",
                     "C:/Users/dfer2/.platformio/packages/framework-arduinoespressif8266/libraries/ESP8266SdFat/src",
@@ -93,7 +94,6 @@
                     "C:/Users/dfer2/.platformio/packages/framework-arduinoespressif8266/libraries/ESP8266httpUpdate/src",
                     "C:/Users/dfer2/.platformio/packages/framework-arduinoespressif8266/libraries/GDBStub/src",
                     "C:/Users/dfer2/.platformio/packages/framework-arduinoespressif8266/libraries/SPISlave/src",
-                    "C:/Users/dfer2/.platformio/packages/framework-arduinoespressif8266/libraries/SoftwareSerial/src",
                     "C:/Users/dfer2/.platformio/packages/framework-arduinoespressif8266/libraries/TFT_Touch_Shield_V2",
                     "C:/Users/dfer2/.platformio/packages/framework-arduinoespressif8266/libraries/Ticker/src",
                     "C:/Users/dfer2/.platformio/packages/framework-arduinoespressif8266/libraries/esp8266/src",

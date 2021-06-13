@@ -10,7 +10,6 @@
 #define _SENSOR_H
 
 #include "Arduino.h"
-//#include "Wire.h"
 
 #include "configs.h"
 
@@ -30,6 +29,11 @@
 
 #ifdef USE_GY91_MPU9250
 #include <MPU9250.h>
+#endif
+
+#ifdef USE_GPS_NEO6M
+#include <SoftwareSerial.h>
+#include <TinyGPS++.h>
 #endif
 
 void dmpDataReady();
@@ -82,6 +86,12 @@ public:
 
 #ifdef USE_GY91_MPU9250
     MPU9250 mpu;
+#endif
+
+#ifdef USE_GPS_NEO6M
+    TinyGPSPlus gps;
+    SoftwareSerial gpsSerial;
+    String gpsCode;
 #endif
 
     float altitude;  // Altitude

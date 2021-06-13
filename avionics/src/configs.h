@@ -10,8 +10,9 @@
 // #define V2_ESP32
 
 /*--------------- System function enable ---------------*/
-#define USE_SERIAL_DEBUGGER
-
+// #define USE_SERIAL_DEBUGGER
+#define USE_SERIAL_COMMS
+#define USE_GPS_NEO6M
 #define USE_PERIPHERAL_BMP280
 //#define USE_PERIPHERAL_BMP280_LIB
 //#define USE_PERIPHERAL_MPU6050
@@ -144,6 +145,12 @@
 /*-------------------- Serial debugger ------------------*/
 #ifdef USE_SERIAL_DEBUGGER
 #define SERIAL_DEBUGGER_BAUDRATE 115200
+#elif defined(USE_SERIAL_COMMS)
+#define SERIAL_COMMS_BAUDRATE 9600
+#ifdef ESP8266
+#define GPS_RXpin 3
+#define GPS_TXpin 1
+#endif
 #endif
 
 /*------------------ Watchdog protection ----------------*/

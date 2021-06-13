@@ -112,6 +112,17 @@ void System::loop()
 #ifdef USE_PERIPHERAL_BMP280
     //imu.bmp_update();
 #endif
+#ifdef USE_GPS_NEO6M
+    if(imu.gpsSerial.available()){
+        char m = (char)imu.gpsSerial.read();
+        if(m != '\n')
+            imu.gpsCode += m;
+        else{
+            wifi_broadcast(imu.gpsCode);
+            imu.gpsCode = "";
+        }
+    }
+#endif
 }
 
 #ifdef USE_DUAL_SYSTEM_WATCHDOG

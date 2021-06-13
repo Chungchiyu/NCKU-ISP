@@ -18,6 +18,10 @@ IMU::IMU()
 #ifdef USE_GY91_MPU9250
     : mpu(Wire, 0x68)
 #endif
+#ifdef USE_GPS_NEO6M
+    , gpsSerial(GPS_RXpin, GPS_TXpin)
+    , gpsCode("")
+#endif
 {
     pose = ROCKET_UNKNOWN;
 }
@@ -118,6 +122,10 @@ ERROR_CODE IMU::init()
                     Adafruit_BMP280::SAMPLING_X16, /* Pressure oversampling */
                     Adafruit_BMP280::FILTER_X16,   /* Filtering. */
                     Adafruit_BMP280::STANDBY_MS_500); /* Standby time. (ms) */
+#endif
+
+#ifdef USE_GPS_NEO6M
+    gpsSerial.begin(SERIAL_COMMS_BAUDRATE);
 #endif
 
 #ifdef USE_MPU_ISP_INTERFACE

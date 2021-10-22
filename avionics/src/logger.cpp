@@ -1,13 +1,19 @@
 #include "logger.h"
 
-Logger::Logger()
+Logger::Logger() :
 #ifdef USE_LORA_COMMUNICATION
-    : lora(PIN_LORA_SELECT,    // Port-Pin Output: SPI select
+    lora(PIN_LORA_SELECT,    // Port-Pin Output: SPI select
            PIN_LORA_RESET,     // Port-Pin Output: Reset
            PIN_LORA_BUSY,      // Port-Pin Input:  Busy
            PIN_LORA_INTERRUPT  // Port-Pin Input:  Interrupt DIO1
-           )
+           ),
 #endif
+#ifdef LITTLE_FS
+    filesystem(&LittleFS),
+#else
+    filesystem(&SPIFFS),
+#endif
+    used(true)
 {
 #ifdef USE_LORA_COMMUNICATION
     lora_packet_id = 0;
@@ -41,13 +47,6 @@ bool Logger::init()
         Serial.println("LittleFS mount failed");
         return false;
     }
-
-    // Check whether the filename is unique
-    String fileName = LOGGER_FILENAME;
-    String extension = LOGGER_FILE_EXT;
-    file_ext = fileName + extension;
-    for (int i = 0; filesystem->exists(file_ext); i++)
-        file_ext = fileName + String(i) + extension;
 #endif
     return true;
 }
@@ -71,21 +70,21 @@ void Logger::log(String msg, LOG_LEVEL level)
 {
     // Adding prefix message
     String prefix = "";
-    switch (level) {
-    case LEVEL_DEBUG:
-        prefix = "D->";
-        break;
-    case LEVEL_INFO:
-        prefix = "I->";
-        break;
-    case LEVEL_WARNING:
-        prefix = "W->";
-        break;
-    case LEVEL_ERROR:
-        prefix = "E->";
-        break;
-    }
-    prefix += String(millis()) + ':';
+    // switch (level) {
+    // case LEVEL_DEBUG:
+    //     prefix = "D->";
+    //     break;
+    // case LEVEL_INFO:
+    //     prefix = "I->";
+    //     break;
+    // case LEVEL_WARNING:
+    //     prefix = "W->";
+    //     break;
+    // case LEVEL_ERROR:
+    //     prefix = "E->";
+    //     break;
+    // }
+    // prefix += String(millis()) + ':';
 
 #ifdef USE_PERIPHERAL_SD_CARD
     // Create file if it is not exist
@@ -99,13 +98,13 @@ void Logger::log(String msg, LOG_LEVEL level)
     // Open for appending (writing at end of file).
     // The file is created if it does not exist.
     // The stream is positioned at the end of the file.
-    File f = filesystem->open(file_ext, "a");
+    if (level != LEVEL_FLIGHT)
+        f = filesystem->open(file_ext, "a");
     if (!f) {
         Serial.println("Failed to open file for appending");
         return;
     }
     f.print(prefix + msg + "\n");
-    f.close();
 #endif
 
 
@@ -122,6 +121,18 @@ void Logger::log_code(int code, LOG_LEVEL level)
 
 #ifdef USE_FILE_SYSTEM
 
+void Logger::newFile(LOG_LEVEL level)
+{
+    // Check whether the filename is unique
+    String fileName = LOGGER_FILENAME;
+    String extension = LOGGER_FILE_EXT;
+    file_ext = fileName + extension;
+    for (int i = 0; filesystem->exists(file_ext); i++)
+        file_ext = fileName + String(i) + extension;
+    if(level == LEVEL_FLIGHT)
+        f = filesystem->open(file_ext, "a");
+}
+
 String Logger::listFile(String path)
 {
     // Assuming there are no subdirectories
@@ -131,7 +142,7 @@ String Logger::listFile(String path)
         File entry = dir.openFile("r");
         // Separate by comma if there are multiple files
         if (output != "[")
-            output += ",";
+            output += ",\n";
         output += String(entry.name()).substring(0);
         entry.close();
     }
@@ -156,26 +167,71 @@ bool Logger::deleteFile(String fileName)
     return deleteFile(fileName.c_str());
 }
 
+String Logger::clearDataFile()
+{
+    String fileName = LOGGER_FILENAME;
+    String extension = LOGGER_FILE_EXT;
+    String file_del = fileName + extension;
+    for (int i = 0; filesystem->exists(file_del); i++) {
+        deleteFile(file_del);
+        file_del = fileName + String(i) + extension;
+    }
+    String feedback = String("The remain files are: ") + listFile();
+    return feedback;
+}
+
 bool Logger::formatFS()
 {
     return filesystem->format();
 }
 
-String Logger::readFile(const char *fileName)
+String Logger::readFile(const char *fileName, int *pos)
 {
     File f = filesystem->open(String("/") + fileName, "r");
-    if(!f)
+    if(!f){
+        *pos = -1;
         return String("Failed to open file for reading");
-    String index;
-    while(f.available())
-        index += (char)f.read();
+    }
+    String index = "\n,";
+    int counter = 0;
+    f.seek(*pos, SeekSet);
+    while(f.available()) {
+        char in = (char)f.read();
+        index += in;
+        counter++;
+        if (counter >= 1000 && in == '\n') {
+            *pos += counter;
+            break;
+        }
+    }
+    if(counter < 1000)
+        *pos = -1;
     f.close();
     return index;
 }
 
-String Logger::readFile(String fileName)
+String Logger::readFile(String fileName, int *pos)
 {
-    return readFile(fileName.c_str());
+    return readFile(fileName.c_str(), pos);
+}
+
+String Logger::fsInfo()
+{
+    filesystem->info(fs_info);
+    String info = "FileSystem Info:\n";
+    info += String("totalBytes: ") + fs_info.totalBytes + '\n';
+    info += String("usedBytes: ") + fs_info.usedBytes + '\n';
+    info += String("pageSize: ") + fs_info.pageSize + '\n';
+    info += String("blockSize: ") + fs_info.blockSize + '\n';
+    info += String("maxOpenFiles: ") + fs_info.maxOpenFiles + '\n';
+    info += String("maxPathLength: ") + fs_info.maxPathLength;
+    return info;
+}
+
+String Logger::remain_space()
+{
+    filesystem->info(fs_info);
+    return String(fs_info.totalBytes - fs_info.usedBytes);
 }
 
 #endif

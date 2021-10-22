@@ -25,7 +25,7 @@
 #include <SX126x.h>
 #endif
 
-enum LOG_LEVEL { LEVEL_DEBUG, LEVEL_INFO, LEVEL_WARNING, LEVEL_ERROR };
+enum LOG_LEVEL { LEVEL_DEBUG, LEVEL_INFO, LEVEL_WARNING, LEVEL_ERROR, LEVEL_FLIGHT};
 enum LOG_LORA_MODE { LORA_ACCEL, LORA_GYRO, LORA_COMMAND };
 
 typedef union {
@@ -39,7 +39,7 @@ typedef union {
 class Logger
 {
 private:
-    String file_ext;
+    bool used;
 
 #ifdef USE_LORA_COMMUNICATION
     LoraPacket packet;
@@ -53,10 +53,13 @@ public:
 #ifdef USE_FILE_SYSTEM
 #ifdef LITTLE_FS
     FS *filesystem = &LittleFS;
+    FSInfo fs_info;
 #else
     FS *filesystem = &SPIFFS;
 #endif
 #endif
+    String file_ext;
+    File f;
 
     Logger();
 
@@ -73,6 +76,8 @@ public:
     /* Log existing error code or info code */
     void log_code(int code, LOG_LEVEL level);
 
+    void newFile(LOG_LEVEL level=LEVEL_DEBUG);
+
     /* List file on board */
     String listFile(String path = "/");
 
@@ -80,11 +85,16 @@ public:
     bool deleteFile(const char * filename);
     bool deleteFile(String fileName);
 
+    String clearDataFile();
+
     /* Format all filesystem */
     bool formatFS();
 
-    String readFile(const char *fileName);
-    String readFile(String fileName);
+    String readFile(const char *fileName, int *pos);
+    String readFile(String fileName, int *pos);
+
+    String fsInfo();
+    String remain_space();
 
 #ifdef USE_LORA_COMMUNICATION
     void lora_send(LOG_LORA_MODE mode, int16_t *data);

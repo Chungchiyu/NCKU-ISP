@@ -12,9 +12,6 @@ System::System()
       ,
       comms()  // Initialize wifi communication object
 #endif
-      ,
-      closeAngle(SERVO_INITIAL_ANGLE),
-      openAngle(SERVO_RELEASE_ANGLE)
 {
 // Pin set up
 #ifdef USE_DUAL_SYSTEM_WATCHDOG
@@ -32,9 +29,13 @@ System::System()
     digitalWrite(PIN_BUZZER, LOW);
 #endif
 
-    // Trigger
+// Trigger
+#ifdef V3_PIONEER
+#else
     pinMode(PIN_TRIGGER, OUTPUT);
     trig(LOW);
+    pinMode(PIN_MOTOR, OUTPUT);
+#endif
 }
 
 SYSTEM_STATE System::init()
@@ -46,30 +47,91 @@ SYSTEM_STATE System::init()
 #ifdef USE_WIFI_COMMUNICATION
     comms.init();
 #endif
-    logger.log_code(INFO_LOGGER_INIT, LEVEL_INFO);
+
+    // OTA_init();
+    // logger.log_code(INFO_LOGGER_INIT, LEVEL_INFO);
 
     // Setup IMU
     while (imu.init() != ERROR_OK) {
-        // logger.log_code(ERROR_IMU_INIT_FAILED, LEVEL_ERROR);
+        logger.log_code(ERROR_IMU_INIT_FAILED, LEVEL_ERROR);
         // buzzer(BUZ_LEVEL0);
+        wifi_broadcast(String("ERROR_IMU_INIT_FAILED") + LEVEL_ERROR);
     }
-    // // logger.log_info(INFO_IMU_INIT);
-    // // logger.log_code(INFO_IMU_INIT, LEVEL_INFO);
+// // logger.log_info(INFO_IMU_INIT);
+// // logger.log_code(INFO_IMU_INIT, LEVEL_INFO);
 
-    // // Servo position inialization
-    // parachute(SERVO_INITIAL_ANGLE);
-    // logger.log_code(INFO_SERVO_INIT, LEVEL_INFO);
+// // Servo position inialization
+// parachute(SERVO_INITIAL_ANGLE);
+// logger.log_code(INFO_SERVO_INIT, LEVEL_INFO);
 
-    // // Lora initialization
-    // logger.lora_init();
-    // logger.log_code(INFO_LORA_INIT, LEVEL_INFO);
+// // Lora initialization
+// logger.lora_init();
+// logger.log_code(INFO_LORA_INIT, LEVEL_INFO);
 
-    // // buzzer(BUZ_LEVEL3);
+// // buzzer(BUZ_LEVEL3);
 
-    // // Setup core update
-    // logger.log_code(INFO_ALL_SYSTEM_INIT, LEVEL_INFO);
+// // Setup core update
+// logger.log_code(INFO_ALL_SYSTEM_INIT, LEVEL_INFO);
+
+#ifdef ENGINE_LOADING_TEST
+    pinMode(12, OUTPUT);
+    digitalWrite(12, 0);
+
+    loadcell.begin(DT_PIN, SCK_PIN);
+
+    Serial.println("Before setting up the loadcell:");
+
+    Serial.println(loadcell.get_units(5), 0);  //Data before setting the scale factor
+
+    loadcell.set_scale(SCALE_FACTOR);  // Set the scale factor
+    loadcell.tare();                      // Set origin
+
+    Serial.println("After setting up the loadcell:");
+
+    Serial.println(loadcell.get_units(5), 0);  //Data after setting the scale factor
+
+    Serial.println("Ready!");
+#endif
 
     return SYSTEM_READY;
+}
+
+void System::OTA_init()
+{
+    ArduinoOTA.onStart([]() {
+        String type;
+        if (ArduinoOTA.getCommand() == U_FLASH) {
+            type = "sketch";
+        } else {  // U_FS
+            type = "filesystem";
+        }
+
+        // NOTE: if updating FS this would be the place to unmount FS using
+        // FS.end()
+        Serial.println("Start updating " + type);
+    });
+    ArduinoOTA.onEnd([]() { Serial.println("\nEnd"); });
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+        Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+    });
+    ArduinoOTA.onError([](ota_error_t error) {
+        Serial.printf("Error[%u]: ", error);
+        if (error == OTA_AUTH_ERROR) {
+            Serial.println("Auth Failed");
+        } else if (error == OTA_BEGIN_ERROR) {
+            Serial.println("Begin Failed");
+        } else if (error == OTA_CONNECT_ERROR) {
+            Serial.println("Connect Failed");
+        } else if (error == OTA_RECEIVE_ERROR) {
+            Serial.println("Receive Failed");
+        } else if (error == OTA_END_ERROR) {
+            Serial.println("End Failed");
+        }
+    });
+    ArduinoOTA.begin();
+    Serial.println("Ready");
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
 }
 
 
@@ -108,16 +170,21 @@ void System::loop()
 
     command(&comms.message);
 
+    imu.bmp_update();
+
+    flight();
+
+    loading_test(&comms.message);
 #endif
-#ifdef USE_PERIPHERAL_BMP280
-    //imu.bmp_update();
-#endif
+
+// ArduinoOTA.handle();
+
 #ifdef USE_GPS_NEO6M
-    if(imu.gpsSerial.available()){
-        char m = (char)imu.gpsSerial.read();
-        if(m != '\n')
+    if (imu.gpsSerial.available()) {
+        char m = (char) imu.gpsSerial.read();
+        if (m != '\n')
             imu.gpsCode += m;
-        else{
+        else {
             wifi_broadcast(imu.gpsCode);
             imu.gpsCode = "";
         }
@@ -172,16 +239,25 @@ void System::buzzer(BUZZER_LEVEL beep)
 
 void System::trig(bool trig)
 {
+#ifdef V3_PIONEER
+    digitalWrite(S0, 1);
+    digitalWrite(S1, 1);
+    digitalWrite(S2, 1);
+    digitalWrite(PIN_CD4051, trig);
+#else
     digitalWrite(PIN_TRIGGER, trig);
+#endif
 }
 
 void System::fairingOpen(int angle)
 {
     // trig(true);
     servo.attach(PIN_MOTOR);
-    servo.write(angle); 
+    servo.write(angle);
     Serial.println("open fairing done.");
     wifi_broadcast("open fairing done.");
+    if (start)
+        logger.log("open", LEVEL_FLIGHT);
 }
 
 // Barely used (Just in case)
@@ -207,12 +283,33 @@ void System::setFairingLimit(int close, int open)
     openAngle = open;
 }
 
+void System::setMotor(int motor, int angle)
+{
+    servo.detach();
+    if (motor != 0) {
+        // digitalWrite(S0, 0);
+        // digitalWrite(S1, 0);
+        // digitalWrite(S2, 1);
+        // servo.attach(13);
+    } else
+        servo.attach(14);
+    servo.write(angle);
+    String message = "Set" + motor + String("motor to ") + angle + String(" °");
+    Serial.println(message);
+    wifi_broadcast(message);
+    // digitalWrite(S0, 0);
+    // digitalWrite(S1, 0);
+    // digitalWrite(S2, 0);
+    //
+}
+
 void System::command(String *command)
 {
-    if ((*command).equals("open fairing")) {
+    // Fairing command
+    if ((*command).equals("open")) {
         fairingOpen(openAngle);
         (*command) = "";
-    } else if ((*command).equals("close fairing")) {
+    } else if ((*command).equals("close")) {
         fairingClose(closeAngle);
         (*command) = "";
     } else if ((*command).indexOf("set fairing") != -1) {
@@ -231,4 +328,160 @@ void System::command(String *command)
         }
         (*command) = "";
     }
+
+    // Launch command
+    if (comms.message == "launch") {
+        start = true;
+        logger.newFile(LEVEL_FLIGHT);
+        wifi_broadcast(logger.file_ext);
+        wifi_broadcast("launch");
+        comms.message = "";
+    }
+
+    // Recording command
+    if (comms.message == "stop" && start) {
+        start = false;
+        logger.f.close();
+        wifi_broadcast(logger.file_ext + ": recording stopped");
+        comms.message = "";
+    }
+
+    // Time command
+    if (comms.message.substring(0, 5) == "rtime") {
+        comms.message.remove(0, 6);
+        release_t = comms.message.toInt();
+        wifi_broadcast(String("Set release time to ") + release_t + "ms");
+        comms.message = "";
+    } else if (comms.message.substring(0, 5) == "stime") {
+        comms.message.remove(0, 6);
+        stop_t = comms.message.toInt();
+        wifi_broadcast(String("Set stop time to ") + stop_t + "ms");
+        comms.message = "";
+    }
+
+    // Restart command
+    if (comms.message == "restart") {
+        pinMode(16, OUTPUT);
+        digitalWrite(16, 0);
+    }
+
+    // Clear data file command
+    if (comms.message == "clear") {
+        wifi_broadcast(logger.clearDataFile());
+        comms.message = "";
+    }
+
+    // Info check command
+    if (comms.message == "info") {
+        wifi_broadcast(logger.fsInfo());
+        comms.message = "";
+    } else if (comms.message == "space") {
+        wifi_broadcast(logger.remain_space());
+        comms.message = "";
+    }
+
+    if (comms.message.indexOf("read") != -1) {
+        static int position = 0;
+        if (position != -1)
+            wifi_broadcast(
+                logger.readFile(comms.message.substring(5), &position).c_str());
+        else {
+            position = 0;
+            comms.message = "";
+        }
+    }
+}
+
+void System::flight()
+{
+    float height = 0, speed = 0;
+    String series = "";
+#ifdef USE_PERIPHERAL_BMP280
+    height = imu.est_altitude;
+    speed = imu.velocity;
+#endif
+    // Serial.printf("%.2f, %.2f\n", height, speed);
+    // series = String("s");
+    auto T_now = millis();
+    static auto T_send = T_now;
+    static bool first = true;
+    static bool opened = false;
+    if (!first && !start)
+        first = true;
+
+    if (start) {
+        static auto T_100ms = T_now, T_10ms = T_now, T_release = T_now,
+                    T_stop = T_now, T_start = T_now;
+        if (first) {
+            T_100ms = T_now;
+            T_10ms = T_now;
+            T_release = T_now;
+            T_stop = T_now;
+            T_start = T_now;
+            opened = false;
+        }
+        first = false;
+
+        series = String("f,") + (T_now - T_start) + ',' + height + ',' + speed +
+                 ',' + imu.pose;
+        if (T_now - T_10ms >= 10) {
+            // Serial.println((T_now - T_start)/1000);
+            logger.log(series, LEVEL_FLIGHT);
+            T_10ms = T_now;
+        }
+        if (T_now - T_100ms >= 100) {
+            // Serial.println(series);
+            wifi_broadcast(series);
+            T_100ms = T_now;
+        }
+        if (T_now - T_release >= (unsigned) release_t) {
+            fairingOpen(SERVO_RELEASE_ANGLE);
+            T_release = T_now;
+        }
+        if (T_now - T_stop >= (unsigned) stop_t) {
+            start = false;
+            wifi_broadcast(logger.file_ext + ": recording stopped");
+        }
+        if (imu.pose == FALLING && !opened) {
+            Serial.println(".....................");
+            opened = true;
+            fairingOpen(SERVO_RELEASE_ANGLE);
+        }
+    } else if (T_now - T_send > 100) {
+        series = String("s, 0") + ',' + height + ',' + speed + ',' + imu.pose;
+        wifi_broadcast(series);
+        T_send = T_now;
+    }
+}
+
+void System::loading_test(String *command)
+{
+#ifdef ENGINE_LOADING_TEST
+    static bool testing = false;
+    static auto start_t = millis();
+    if(*command == "test") {
+        digitalWrite(12, 1);
+        testing = true;
+        *command = "";
+        logger.newFile(LEVEL_FLIGHT);
+        wifi_broadcast(logger.file_ext + ": recording start");
+        start_t = millis();
+    }
+    if(testing) {
+        if (loadcell.is_ready()) {
+			String reading = String(loadcell.get_units(1));
+            String time = String(millis()-start_t);
+			wifi_broadcast(time + "," + reading);
+            logger.log(time + "," + reading, LEVEL_FLIGHT);
+			Serial.println(reading);
+		}
+    }
+    if(*command == "stop test") {
+        digitalWrite(12, 0);
+        logger.f.close();
+        wifi_broadcast(logger.file_ext + ": recording stop");
+        testing = false;
+        *command = "";
+    }
+#endif
 }

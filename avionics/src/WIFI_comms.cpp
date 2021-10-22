@@ -142,6 +142,8 @@ void wifiServer::webSocketEvent(uint8_t num,
 
         // Send message to client
         webSocket.sendTXT(num, "Connected");
+        String device = String(num) + " has connected";
+        webSocket.broadcastTXT(device);
     } break;
     // If websocket get text message (Use this as command)
     case WStype_TEXT:
@@ -182,8 +184,6 @@ void wifiServer::webSocketEvent(uint8_t num,
                 }
                 wait = false;
             }
-        } else if(message.indexOf("read") != -1) {
-            webSocket.sendTXT(num, readFile(message.substring(5)).c_str());
         }
         // send message to client
         // webSocket.sendTXT(num, "message here");

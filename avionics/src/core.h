@@ -16,7 +16,13 @@
 #include "sensors.h"
 #include "WIFI_comms.h"
 
+
+#include <ArduinoOTA.h>
 #include <Servo.h>
+
+#ifdef ENGINE_LOADING_TEST
+#include <HX711.h>
+#endif
 
 enum SYSTEM_STATE { SYSTEM_UP = 0, SYSTEM_READY, SYSTEM_ERROR };
 enum SPI_MASTER { SPI_NONE, SPI_SD, SPI_COMMUNICATION};
@@ -41,7 +47,17 @@ private:
     volatile SPI_MASTER sd_master;
 
     Servo servo;
-    int closeAngle, openAngle;    // For setting servo angle
+    int closeAngle = SERVO_INITIAL_ANGLE
+      , openAngle = SERVO_RELEASE_ANGLE;    // For setting servo angle
+    bool start = false;
+    int release_t = RELEASE_TIME;
+    int stop_t = STOP_TIME;
+
+    void OTA_init();
+
+    #ifdef ENGINE_LOADING_TEST
+    HX711 loadcell;
+    #endif
 
 public:
     SYSTEM_STATE state;
@@ -80,8 +96,11 @@ public:
     void fairingClose(int angle = SERVO_INITIAL_ANGLE);
     void fairingServoOff();
     void setFairingLimit(int close, int open);
+    void setMotor(int motor, int angle);
 
     void command(String *command);
+    void flight();
+    void loading_test(String *command);
 };
 
 #endif

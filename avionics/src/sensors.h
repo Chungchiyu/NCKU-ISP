@@ -15,6 +15,7 @@
 
 #ifdef USE_PERIPHERAL_BMP280
 #include "Adafruit_BMP280_simplified.h"
+#include <SimpleKalmanFilter.h>
 //#include "Adafruit_BMP280.h"
 #endif
 
@@ -43,13 +44,10 @@ enum ROCKET_POSE { ROCKET_UNKNOWN, ROCKET_RISING, ROCKET_FALLING };
 class IMU
 {
 private:
+    bool used;
 /* Sensors */
 #ifdef USE_PERIPHERAL_MPU6050
     MPU6050 mpu;
-#endif
-
-#ifdef USE_PERIPHERAL_BMP280
-    Adafruit_BMP280 bmp;  // I2C
 #endif
 
 /* Raw data */
@@ -79,6 +77,12 @@ private:
     float altitude_filter(float v);
 
 public:
+
+#ifdef USE_PERIPHERAL_BMP280
+    Adafruit_BMP280 bmp;  // I2C
+    SimpleKalmanFilter altitudeKalmanFilter;
+#endif
+
 #ifdef USE_PERIPHERAL_MPU6050
     VectorInt16
         aaWorld;  // [x, y, z]            world-frame accel sensor measurements
@@ -95,6 +99,8 @@ public:
 #endif
 
     float altitude;  // Altitude
+    float est_altitude;
+    float velocity;
 
     float seaLevelHpa;
 
@@ -122,10 +128,8 @@ public:
     bool imu_isr_update();
 #endif
 
-#ifdef USE_PERIPHERAL_BMP280
     // Read pressure and temperature from bmp sensor
-    void bmp_update();
-#endif
+    float bmp_update();
 };
 
 #endif

@@ -15,13 +15,18 @@ double IMU::altitude = 0; // Altitude
 double IMU::sea_level_pressure = 0;
 */
 IMU::IMU()
+    :
 #ifdef USE_GY91_MPU9250
-    : mpu(Wire, 0x68)
+      mpu(Wire, 0x68),
 #endif
 #ifdef USE_GPS_NEO6M
-    , gpsSerial(GPS_RXpin, GPS_TXpin)
-    , gpsCode("")
+      gpsSerial(PIN_GPS_RX, PIN_GPS_TX),
+      gpsCode(""),
 #endif
+#ifdef USE_PERIPHERAL_BMP280
+      altitudeKalmanFilter(1, 1, 0.01),
+#endif
+      used(true)  // Check if it is initialized and macro arragement
 {
     pose = ROCKET_UNKNOWN;
 }
@@ -117,11 +122,11 @@ ERROR_CODE IMU::init()
     if (!bmp.begin(BMP280_ADDRESS_ALT, BMP280_CHIPID))
         return ERROR_BMP_INIT_FAILED;
 
-    bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,  /* Operating Mode. */
-                    Adafruit_BMP280::SAMPLING_X2,  /* Temp. oversampling */
-                    Adafruit_BMP280::SAMPLING_X16, /* Pressure oversampling */
-                    Adafruit_BMP280::FILTER_X16,   /* Filtering. */
-                    Adafruit_BMP280::STANDBY_MS_500); /* Standby time. (ms) */
+    bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,   /* Operating Mode. */
+                    Adafruit_BMP280::SAMPLING_X1,   /* Temp. oversampling */
+                    Adafruit_BMP280::SAMPLING_X2,   /* Pressure oversampling */
+                    Adafruit_BMP280::FILTER_OFF,    /* Filtering. */
+                    Adafruit_BMP280::STANDBY_MS_1); /* Standby time. (ms) */
 #endif
 
 #ifdef USE_GPS_NEO6M
@@ -145,6 +150,7 @@ ERROR_CODE IMU::init()
     // Assuming the initializing altitude is sea level
     // unit from pa to hpa
     seaLevelHpa = p / IMU_BMP_SEA_LEVEL_PRESSURE_SAMPLING / 100;
+// altitudeKalmanFilter.setEstimateError(bmp.readAltitude(seaLevelHpa));
 #endif
     return ERROR_OK;
 }
@@ -193,35 +199,47 @@ float IMU::altitude_filter(float v)
     return decay;
 }
 
-#ifdef USE_PERIPHERAL_BMP280
+
 /* The criteria to determine launching state:
  * 1. The average first derivative of altitude is larger than
  */
-void IMU::bmp_update()
+float IMU::bmp_update()
 {
+    #ifdef USE_PERIPHERAL_BMP280
 // altitude = altitude_filter(bmp.readAltitude(seaLevelHpa));
 #ifdef USE_PERIPHERAL_BMP280
-    altitude = bmp.readAltitude(seaLevelHpa);
+    static float lastAltitude = est_altitude;
+    float bmp_read_altitude = bmp.readAltitude(seaLevelHpa);
+
+    if (bmp_read_altitude != altitude) {
+        altitude = bmp.readAltitude(seaLevelHpa);
+        est_altitude = altitudeKalmanFilter.updateEstimate(altitude);
+
+        // times 1000 because unit changes from ms to s
+        // TODO: use third derivative
+        velocity =
+            1000 * (est_altitude - lastAltitude) / IMU_BMP_SAMPLING_PERIOD;
+
+        // Updating altitude record
+        lastAltitude = est_altitude;
+        
+        // static auto t = micros();
+        // auto tv = micros() - t;
+        // t = micros();
+        // Serial.println(tv);
+    }
 #endif
 
-    static float lastAltitude = altitude;
-
-    // times 1000 because unit changes from ms to s
-    // TODO: use third derivative
-    float derivative =
-        1000 * (altitude - lastAltitude) / IMU_BMP_SAMPLING_PERIOD;
-
-    // Updating altitude record
-    lastAltitude = altitude;
-
-    if (derivative > IMU_RISING_CRITERIA) {
+    if (velocity > IMU_RISING_CRITERIA) {
         // Rocket rising
         pose = ROCKET_RISING;
-    } else if (derivative < IMU_FALLING_CRITERIA) {
+    } else if (velocity < IMU_FALLING_CRITERIA) {
         // Rocket falling
         pose = ROCKET_FALLING;
     } else {
         pose = ROCKET_UNKNOWN;
     }
+
+    return est_altitude;
+    #endif
 }
-#endif
